@@ -105,6 +105,7 @@ A shippable version or release of the project. Display label is free-text so the
 | `stream` | enum | Reporting label only: `execution` \| `bizdev` \| `ip` \| `ops` (defaults from epic) |
 | `contributors` | array | `[{ partnerId, weight }]` — weights sum to 1.0. Solo task = single entry at 1.0 (see §3.1) |
 | `status` | enum | `backlog` \| `in_progress` \| `done` \| `blocked` |
+| `deadline` | ISO string \| null | Optional target date — drives sorting and due-soon highlighting (§6, §9); never affects score |
 | `effortPoints` | number | Fibonacci 1,2,3,5,8,13 — size/time of the task |
 | `complexityBand` | number | 1 / 1.5 / 2 — skill scarcity of the task |
 | `impactTier` | number | 1 / 2 / 3 — business impact of the task |
@@ -221,9 +222,11 @@ Dark SamvidhX theme — chip-frame motif, blue primary (`#2BA8E0`-ish), orange s
 2. **Projects** — card/list of projects with rolled-up points and status; create/edit.
 3. **Project detail** — its milestones (list with status, target date, rolled-up points); project-level per-partner breakdown.
 4. **Milestone detail** — its epics (list or kanban by status); milestone-level per-partner breakdown; label + target date editable inline.
-5. **Epic detail** — its tasks; add/edit task; epic roll-up.
-6. **Task editor (modal)** — E/C/I inputs (sliders or selects); a `stream` label dropdown; status; and a **contributors** row where you add one or more partners with weight sliders that auto-normalise to 100%. Live-shows the resulting `score` and each partner's split.
-7. **Partners** — manage partners, colors, capital reference.
+5. **Epic detail** — its tasks; add/edit task; epic roll-up. Each task row also has a **Copy** action: opens the task editor pre-filled with the source task's title (suffixed "(copy)"), description, stream, E/C/I, and contributors; saving creates a **new** task in the same epic with a fresh `id`/`createdAt`, status `backlog`, `completedAt` null, and `deadline` cleared.
+6. **Task editor (modal)** — E/C/I inputs (sliders or selects); a `stream` label dropdown; status; an optional **deadline** date input; and a **contributors** row where you add one or more partners with weight sliders that auto-normalise to 100%. Live-shows the resulting `score` and each partner's split. When opened **without an epic context** (i.e. from Partner detail), it additionally shows cascading **Project → Milestone → Epic** dropdowns to place the task; every task must still land in an epic.
+7. **Partners** — manage partners, colors, capital reference. Each partner card is clickable and navigates to Partner detail (7a).
+
+7a. **Partner detail** (route `/partners/:partnerId`, `PartnerDetail.jsx`) — all tasks where the partner is a contributor, across all projects, each row showing project ▸ milestone ▸ epic breadcrumb, status, deadline, and the partner's credit (`score × weight`). Sorted by `deadline` ascending; tasks without a deadline sort last. Tasks due within the next **10 days** (`DUE_SOON_DAYS`) get a soft pulsing glow using `--accent-orng`; overdue tasks pulse red; `done` tasks never pulse. An **Add Task** button opens the task editor with this partner pre-filled as sole contributor (weight 1.0) and the cascading Project → Milestone → Epic picker enabled.
 8. **Settings** — edit Config: complexity bands, impact tiers, impact cap, `countOnlyCompleted`, period dates.
 9. **Review** — suggested-share calculator for the period + **Export summary** (copy-to-clipboard block for the partner meeting / Form 3 prep).
 
@@ -288,6 +291,8 @@ Built with Claude Code CLI. Deployed to Cloudflare Pages. No artifact sandbox co
 - **Estimate-before-assign:** prompt to set E/C/I at creation (planning-poker style) to reduce self-rating bias.
 - **Concurrency:** last-write-wins; partition by epic; re-read before write.
 - **Audit:** keep `createdAt` / `estimatedAt` / `completedAt` on every task — the trail is what keeps the annual review calm.
+- **Deadlines:** `deadline` is optional and display/sort-only — it never enters scoring, roll-ups, or period attribution. **Due-soon** = deadline within the next 10 calendar days (`DUE_SOON_DAYS = 10`) and status ≠ `done`. **Overdue** = deadline in the past and status ≠ `done`. Both are computed at render time, never persisted.
+- **Task copy:** copying a task (§6.5) duplicates `title` (+" (copy)"), `description`, `stream`, `effortPoints`, `complexityBand`, `impactTier`, and `contributors`; it generates a fresh `id`, sets `createdAt`/`estimatedAt` to now, resets status to `backlog`, and clears `completedAt` and `deadline`. The copy is a new task in the same epic — it earns points independently once completed.
 
 ---
 
@@ -441,7 +446,7 @@ samvidhx-tracker/
 │   │   ├── storage.js               ← KV abstraction (§11.5) — only file that knows about fetch
 │   │   ├── scoring.js               ← scoreTask(task, config), rollUp(tasks, epics, ...)
 │   │   ├── uid.js                   ← generateId(prefix) → "prj_xxxx"
-│   │   └── constants.js             ← FIBONACCI, COMPLEXITY_BANDS, IMPACT_TIERS, STREAMS
+│   │   └── constants.js             ← FIBONACCI, COMPLEXITY_BANDS, IMPACT_TIERS, STREAMS, DUE_SOON_DAYS (=10)
 │   │
 │   ├── hooks/
 │   │   ├── useAppData.js            ← loads all entities from storage on mount, exposes mutators
@@ -466,6 +471,7 @@ samvidhx-tracker/
 │   │   ├── EpicDetail.jsx           ← screen 5
 │   │   ├── TaskModal.jsx            ← screen 6 (modal, not a route)
 │   │   ├── Partners.jsx             ← screen 7
+│   │   ├── PartnerDetail.jsx        ← screen 7a — per-partner task list (deadline sort, due-soon pulse, add task)
 │   │   ├── Settings.jsx             ← screen 8
 │   │   └── Review.jsx               ← screen 9
 │   │

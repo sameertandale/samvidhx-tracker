@@ -1,5 +1,8 @@
 export const FIBONACCI = [1, 2, 3, 5, 8, 13]
 
+// Tasks with a deadline within this many days (and not done) get the due-soon pulse
+export const DUE_SOON_DAYS = 10
+
 export const COMPLEXITY_BANDS = [
   { label: 'Routine',     value: 1   },
   { label: 'Skilled',     value: 1.5 },

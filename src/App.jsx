@@ -7,6 +7,7 @@ import { ProjectDetail } from './views/ProjectDetail'
 import { MilestoneDetail } from './views/MilestoneDetail'
 import { EpicDetail } from './views/EpicDetail'
 import { Partners } from './views/Partners'
+import { PartnerDetail } from './views/PartnerDetail'
 import { Settings } from './views/Settings'
 import { Review } from './views/Review'
 
@@ -66,6 +67,7 @@ function AppShell({ appData }) {
           <Route path="/milestones/:milestoneId" element={<MilestoneDetail appData={appData} />} />
           <Route path="/epics/:epicId"      element={<EpicDetail   appData={appData} />} />
           <Route path="/partners"           element={<Partners     appData={appData} />} />
+          <Route path="/partners/:partnerId" element={<PartnerDetail appData={appData} />} />
           <Route path="/review"             element={<Review       appData={appData} />} />
           <Route path="/settings"           element={<Settings     appData={appData} />} />
         </Routes>

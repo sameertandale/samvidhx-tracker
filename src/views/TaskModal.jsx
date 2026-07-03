@@ -97,10 +97,18 @@ function ContributorRow({ partners, contributors, onChange }) {
   )
 }
 
-export function TaskModal({ open, onClose, epicId, partners, initial, onSave, defaultStream }) {
-  const defaultContributor = partners.length > 0 ? [{ partnerId: partners[0].id, weight: 1.0 }] : []
+// mode: 'add' | 'edit' | 'copy'. When epicId is not given, projects/milestones/epics
+// must be passed and the modal shows a cascading picker to place the task.
+export function TaskModal({ open, onClose, epicId, partners, initial, onSave, defaultStream, mode, defaultContributorId, projects = [], milestones = [], epics = [] }) {
+  const resolvedMode = mode ?? (initial ? 'edit' : 'add')
+  const makeDefaultContributors = () => {
+    if (defaultContributorId && partners.some(p => p.id === defaultContributorId)) {
+      return [{ partnerId: defaultContributorId, weight: 1.0 }]
+    }
+    return partners.length > 0 ? [{ partnerId: partners[0].id, weight: 1.0 }] : []
+  }
 
-  const [form, setForm] = useState(() => ({
+  const emptyForm = () => ({
     title: '',
     description: '',
     stream: defaultStream ?? 'execution',
@@ -108,14 +116,20 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
     effortPoints: 3,
     complexityBand: 1,
     impactTier: 2,
-    contributors: defaultContributor,
+    contributors: makeDefaultContributors(),
     estimatedAt: new Date().toISOString().slice(0, 10),
     completedAt: '',
-  }))
+    deadline: '',
+  })
+
+  const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  // Cascading placement picker — only used when no epicId prop is given
+  const [pick, setPick] = useState({ projectId: '', milestoneId: '', epicId: '' })
 
   useEffect(() => {
     if (open) {
+      setPick({ projectId: '', milestoneId: '', epicId: '' })
       if (initial) {
         setForm({
           title: initial.title ?? '',
@@ -125,24 +139,13 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
           effortPoints: initial.effortPoints ?? 3,
           complexityBand: initial.complexityBand ?? 1,
           impactTier: initial.impactTier ?? 2,
-          contributors: initial.contributors?.length ? initial.contributors : defaultContributor,
+          contributors: initial.contributors?.length ? initial.contributors : makeDefaultContributors(),
           estimatedAt: initial.estimatedAt?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
           completedAt: initial.completedAt?.slice(0, 10) ?? '',
+          deadline: initial.deadline?.slice(0, 10) ?? '',
         })
       } else {
-        const dc = partners.length > 0 ? [{ partnerId: partners[0].id, weight: 1.0 }] : []
-        setForm({
-          title: '',
-          description: '',
-          stream: defaultStream ?? 'execution',
-          status: 'backlog',
-          effortPoints: 3,
-          complexityBand: 1,
-          impactTier: 2,
-          contributors: dc,
-          estimatedAt: new Date().toISOString().slice(0, 10),
-          completedAt: '',
-        })
+        setForm(emptyForm())
       }
     }
   }, [open, initial]) // eslint-disable-line
@@ -152,12 +155,18 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
   const weightsOk = Math.abs(total - 1.0) < 0.001
   const liveScore = scoreTask({ effortPoints: form.effortPoints, complexityBand: form.complexityBand, impactTier: form.impactTier }, { impactCap: 3 })
 
+  const needsPicker = !epicId
+  const pickMilestones = milestones.filter(m => m.projectId === pick.projectId)
+  const pickEpics = epics.filter(e => e.milestoneId === pick.milestoneId)
+  const targetEpicId = epicId ?? pick.epicId
+  const epicOk = !!targetEpicId
+
   const handleSave = async () => {
-    if (!form.title.trim() || !weightsOk) return
+    if (!form.title.trim() || !weightsOk || !epicOk) return
     setSaving(true)
     await onSave({
       ...(initial ?? {}),
-      epicId,
+      epicId: targetEpicId,
       title: form.title.trim(),
       description: form.description.trim(),
       stream: form.stream,
@@ -168,14 +177,58 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
       contributors: form.contributors,
       estimatedAt: form.estimatedAt ? form.estimatedAt + 'T00:00:00.000Z' : new Date().toISOString(),
       completedAt: form.completedAt ? form.completedAt + 'T00:00:00.000Z' : null,
+      deadline: form.deadline ? form.deadline + 'T00:00:00.000Z' : null,
     })
     setSaving(false)
     onClose()
   }
 
+  const titles = { add: 'Add Task', edit: 'Edit Task', copy: 'Copy Task' }
+  const selectStyle = { backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-pri)' }
+
   return (
-    <Modal open={open} onClose={onClose} title={initial ? 'Edit Task' : 'Add Task'} width="max-w-2xl">
+    <Modal open={open} onClose={onClose} title={titles[resolvedMode]} width="max-w-2xl">
       <div className="space-y-4">
+        {needsPicker && (
+          <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)' }}>
+            <label className="block text-sm mb-2 font-medium" style={{ color: 'var(--text-sec)' }}>Place task in *</label>
+            <div className="grid grid-cols-3 gap-2">
+              <select
+                className="px-2 py-2 rounded-lg text-sm outline-none"
+                style={selectStyle}
+                value={pick.projectId}
+                onChange={e => setPick({ projectId: e.target.value, milestoneId: '', epicId: '' })}
+              >
+                <option value="">Project…</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <select
+                className="px-2 py-2 rounded-lg text-sm outline-none"
+                style={selectStyle}
+                value={pick.milestoneId}
+                disabled={!pick.projectId}
+                onChange={e => setPick(pk => ({ ...pk, milestoneId: e.target.value, epicId: '' }))}
+              >
+                <option value="">Milestone…</option>
+                {pickMilestones.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+              <select
+                className="px-2 py-2 rounded-lg text-sm outline-none"
+                style={selectStyle}
+                value={pick.epicId}
+                disabled={!pick.milestoneId}
+                onChange={e => setPick(pk => ({ ...pk, epicId: e.target.value }))}
+              >
+                <option value="">Epic…</option>
+                {pickEpics.map(ep => <option key={ep.id} value={ep.id}>{ep.name}</option>)}
+              </select>
+            </div>
+            {pick.projectId && pick.milestoneId && pickEpics.length === 0 && (
+              <p className="text-xs mt-2" style={{ color: 'var(--text-sec)' }}>This milestone has no epics yet — create one from its detail page first.</p>
+            )}
+          </div>
+        )}
+
         <div>
           <label className="block text-sm mb-1" style={{ color: 'var(--text-sec)' }}>Title *</label>
           <input
@@ -284,7 +337,16 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm mb-1" style={{ color: 'var(--text-sec)' }}>Deadline</label>
+            <input type="date"
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+              style={{ backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-pri)' }}
+              value={form.deadline}
+              onChange={e => set('deadline', e.target.value)}
+            />
+          </div>
           <div>
             <label className="block text-sm mb-1" style={{ color: 'var(--text-sec)' }}>Estimated At</label>
             <input type="date"
@@ -321,8 +383,8 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
 
         <div className="flex gap-3 pt-2">
           <Button variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
-          <Button onClick={handleSave} disabled={!form.title.trim() || !weightsOk || saving} className="flex-1">
-            {saving ? <Spinner size="sm" /> : (initial ? 'Save Task' : 'Add Task')}
+          <Button onClick={handleSave} disabled={!form.title.trim() || !weightsOk || !epicOk || saving} className="flex-1">
+            {saving ? <Spinner size="sm" /> : (resolvedMode === 'edit' ? 'Save Task' : 'Add Task')}
           </Button>
         </div>
       </div>

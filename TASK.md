@@ -82,4 +82,34 @@ Review.jsx:
 
 ---
 
+## Phase 5 — Partner detail, deadlines, and task copy
+
+Spec: §2.5, §6 (screens 5, 6, 7, 7a), §9, §12 of ARCHITECTURE.md.
+
+- Add optional `deadline` (ISO string | null) to the Task model and a date input
+  in TaskModal.jsx. Deadline never affects scoring or roll-ups.
+- Add `DUE_SOON_DAYS = 10` to src/lib/constants.js.
+- PartnerDetail.jsx — new view at route `/partners/:partnerId`:
+    - All tasks where the partner is a contributor, across all projects,
+      with project ▸ milestone ▸ epic breadcrumb, status, deadline,
+      and partner credit (score × weight).
+    - Sorted by deadline ascending; tasks without a deadline last.
+    - Due-soon tasks (deadline within 10 days, status ≠ done) get a soft
+      pulsing glow using --accent-orng; overdue tasks pulse red; done tasks
+      never pulse. Keyframes go in src/styles/globals.css — tokens only, no hex.
+    - "Add Task" button opens TaskModal with this partner pre-filled as sole
+      contributor (weight 1.0).
+- Make partner cards in Partners.jsx navigate to PartnerDetail.
+- TaskModal.jsx — when opened without an epic context (from PartnerDetail),
+  show cascading Project → Milestone → Epic dropdowns; block save until an
+  epic is chosen.
+- EpicDetail.jsx — "Copy" action per task row: opens TaskModal pre-filled with
+  the source task's title (+" (copy)"), description, stream, E/C/I, and
+  contributors; saves as a new task in the same epic with fresh id/createdAt,
+  status backlog, completedAt null, deadline cleared.
+
+Commit as "phase-5: partner detail, deadlines, task copy".
+
+---
+
 When all phases are done, run `npm run build` and confirm dist/ folder is generated cleanly with no errors.

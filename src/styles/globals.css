@@ -11,6 +11,34 @@
   --accent-orng: #F5871F;
   --text-pri:    #F9FAFB;
   --text-sec:    #9CA3AF;
+  --danger-red:  #F87171;
+}
+
+/* Due-soon / overdue task highlighting (Partner detail) */
+@keyframes pulse-glow-orange {
+  0%, 100% { box-shadow: 0 0 2px 0 var(--accent-orng); }
+  50%      { box-shadow: 0 0 14px 2px var(--accent-orng); }
+}
+
+@keyframes pulse-glow-red {
+  0%, 100% { box-shadow: 0 0 2px 0 var(--danger-red); }
+  50%      { box-shadow: 0 0 14px 2px var(--danger-red); }
+}
+
+.pulse-due-soon {
+  border-color: var(--accent-orng) !important;
+  animation: pulse-glow-orange 1.6s ease-in-out infinite;
+}
+
+.pulse-overdue {
+  border-color: var(--danger-red) !important;
+  animation: pulse-glow-red 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-due-soon, .pulse-overdue { animation: none; }
+  .pulse-due-soon { box-shadow: 0 0 8px 1px var(--accent-orng); }
+  .pulse-overdue  { box-shadow: 0 0 8px 1px var(--danger-red); }
 }
 
 * {

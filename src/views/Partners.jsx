@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
@@ -113,6 +114,7 @@ function PartnerForm({ initial, onSave, onClose }) {
 
 export function Partners({ appData }) {
   const { partners, addPartner, updatePartner, deletePartner } = appData
+  const navigate = useNavigate()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -142,7 +144,7 @@ export function Partners({ appData }) {
       ) : (
         <div className="space-y-3">
           {partners.map(p => (
-            <Card key={p.id} className="flex items-center gap-4">
+            <Card key={p.id} className="flex items-center gap-4" onClick={() => navigate(`/partners/${p.id}`)}>
               <PartnerAvatar partner={p} size="lg" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -163,7 +165,7 @@ export function Partners({ appData }) {
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                 <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>Edit</Button>
                 <Button variant="danger" size="sm" onClick={() => setDeleteTarget(p)}>Delete</Button>
               </div>

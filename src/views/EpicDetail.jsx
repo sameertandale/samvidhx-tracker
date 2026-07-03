@@ -18,8 +18,8 @@ export function EpicDetail({ appData }) {
   const myTasks = tasks.filter(t => t.epicId === epicId)
   const er = rollup.epicRollup[epicId] ?? { points: 0, pointsByPartner: {} }
 
-  const [taskModalOpen, setTaskModalOpen] = useState(false)
-  const [editingTask, setEditingTask] = useState(null)
+  // modal: { mode: 'add' | 'edit' | 'copy', initial: task-shaped object | null }
+  const [modal, setModal] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
   if (!epic) return (
@@ -28,11 +28,25 @@ export function EpicDetail({ appData }) {
     </div>
   )
 
-  const openAdd = () => { setEditingTask(null); setTaskModalOpen(true) }
-  const openEdit = (t) => { setEditingTask(t); setTaskModalOpen(true) }
+  const openAdd = () => setModal({ mode: 'add', initial: null })
+  const openEdit = (t) => setModal({ mode: 'edit', initial: t })
+  const openCopy = (t) => setModal({
+    mode: 'copy',
+    initial: {
+      title: `${t.title} (copy)`,
+      description: t.description,
+      stream: t.stream,
+      status: 'backlog',
+      effortPoints: t.effortPoints,
+      complexityBand: t.complexityBand,
+      impactTier: t.impactTier,
+      contributors: (t.contributors ?? []).map(c => ({ ...c })),
+      // no id / completedAt / deadline — the copy starts fresh
+    },
+  })
 
   const handleSaveTask = (data) => {
-    if (editingTask) return updateTask({ ...editingTask, ...data })
+    if (modal?.mode === 'edit') return updateTask({ ...modal.initial, ...data })
     return addTask({ ...data, epicId })
   }
 
@@ -125,12 +139,16 @@ export function EpicDetail({ appData }) {
                           )
                         })}
                       </div>
+                      {t.deadline && (
+                        <span className="text-xs" style={{ color: 'var(--text-sec)' }}>⏰ {t.deadline.slice(0, 10)}</span>
+                      )}
                       {t.completedAt && (
                         <span className="text-xs" style={{ color: 'var(--text-sec)' }}>✓ {t.completedAt.slice(0, 10)}</span>
                       )}
                     </div>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => openCopy(t)}>Copy</Button>
                     <Button variant="ghost" size="sm" onClick={() => openEdit(t)}>Edit</Button>
                     <Button variant="danger" size="sm" onClick={() => setDeleteTarget(t)}>Del</Button>
                   </div>
@@ -142,11 +160,12 @@ export function EpicDetail({ appData }) {
       )}
 
       <TaskModal
-        open={taskModalOpen}
-        onClose={() => setTaskModalOpen(false)}
+        open={!!modal}
+        onClose={() => setModal(null)}
         epicId={epicId}
         partners={partners}
-        initial={editingTask}
+        initial={modal?.initial ?? null}
+        mode={modal?.mode}
         onSave={handleSaveTask}
         defaultStream={epic.primaryStream}
       />
