@@ -99,6 +99,8 @@ Spec: §2.5, §6 (screens 5, 6, 7, 7a), §9, §12 of ARCHITECTURE.md.
       never pulse. Keyframes go in src/styles/globals.css — tokens only, no hex.
     - "Add Task" button opens TaskModal with this partner pre-filled as sole
       contributor (weight 1.0).
+    - Edit action per task row: opens TaskModal in edit mode for that task
+      (epic fixed — no placement picker).
 - Make partner cards in Partners.jsx navigate to PartnerDetail.
 - TaskModal.jsx — when opened without an epic context (from PartnerDetail),
   show cascading Project → Milestone → Epic dropdowns; block save until an

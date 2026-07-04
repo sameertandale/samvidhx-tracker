@@ -28,8 +28,9 @@ const PULSE_CLASS = { due_soon: 'pulse-due-soon', overdue: 'pulse-overdue', none
 
 export function PartnerDetail({ appData }) {
   const { partnerId } = useParams()
-  const { partners, projects, milestones, epics, tasks, addTask } = appData
-  const [taskModalOpen, setTaskModalOpen] = useState(false)
+  const { partners, projects, milestones, epics, tasks, addTask, updateTask } = appData
+  // modal: { mode: 'add' } | { mode: 'edit', task } | null
+  const [modal, setModal] = useState(null)
 
   const partner = partners.find(p => p.id === partnerId)
 
@@ -61,6 +62,11 @@ export function PartnerDetail({ appData }) {
   const overdueCount = myTasks.filter(r => r.state === 'overdue').length
   const doneCredit = myTasks.filter(r => r.task.status === 'done').reduce((s, r) => s + r.credit, 0)
 
+  const handleSave = (data) => {
+    if (modal?.mode === 'edit') return updateTask({ ...modal.task, ...data })
+    return addTask(data)
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-2 text-sm" style={{ color: 'var(--text-sec)' }}>
@@ -82,7 +88,7 @@ export function PartnerDetail({ appData }) {
             </div>
           </div>
         </div>
-        <Button onClick={() => setTaskModalOpen(true)} size="sm">+ Add Task</Button>
+        <Button onClick={() => setModal({ mode: 'add' })} size="sm">+ Add Task</Button>
       </div>
 
       {myTasks.length === 0 ? (
@@ -90,7 +96,7 @@ export function PartnerDetail({ appData }) {
           <p className="text-3xl mb-2">📋</p>
           <p className="font-medium mb-1" style={{ color: 'var(--text-pri)' }}>No tasks yet</p>
           <p className="text-sm mb-4" style={{ color: 'var(--text-sec)' }}>Tasks where {partner.name} is a contributor will appear here, ordered by deadline.</p>
-          <Button onClick={() => setTaskModalOpen(true)} size="sm">Add First Task</Button>
+          <Button onClick={() => setModal({ mode: 'add' })} size="sm">Add First Task</Button>
         </Card>
       ) : (
         <div className="space-y-2">
@@ -132,6 +138,9 @@ export function PartnerDetail({ appData }) {
                     )}
                   </div>
                 </div>
+                <div className="flex-shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => setModal({ mode: 'edit', task: t })}>Edit</Button>
+                </div>
               </div>
             </Card>
           ))}
@@ -139,10 +148,13 @@ export function PartnerDetail({ appData }) {
       )}
 
       <TaskModal
-        open={taskModalOpen}
-        onClose={() => setTaskModalOpen(false)}
+        open={!!modal}
+        onClose={() => setModal(null)}
+        epicId={modal?.mode === 'edit' ? modal.task.epicId : undefined}
         partners={partners}
-        onSave={addTask}
+        initial={modal?.mode === 'edit' ? modal.task : null}
+        mode={modal?.mode}
+        onSave={handleSave}
         defaultContributorId={partnerId}
         projects={projects}
         milestones={milestones}
