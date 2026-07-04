@@ -6,7 +6,9 @@ import { Modal } from '../components/ui/Modal'
 import { Badge } from '../components/ui/Badge'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Spinner } from '../components/ui/Spinner'
+import { ProgressBar } from '../components/ui/ProgressBar'
 import { STREAMS, EPIC_STATUSES } from '../lib/constants'
+import { progressOf, isMissedDeadline } from '../lib/deadlines'
 
 const KANBAN_COLS = [
   { status: 'backlog',     label: 'Backlog'      },
@@ -98,11 +100,12 @@ function EpicForm({ initial, milestoneId, onSave, onClose }) {
 export function MilestoneDetail({ appData }) {
   const { milestoneId } = useParams()
   const navigate = useNavigate()
-  const { milestones, projects, epics, rollup, addEpic, updateEpic, deleteEpic } = appData
+  const { milestones, projects, epics, tasks, rollup, addEpic, updateEpic, deleteEpic } = appData
 
   const milestone = milestones.find(m => m.id === milestoneId)
   const project = milestone ? projects.find(p => p.id === milestone.projectId) : null
   const myEpics = epics.filter(e => e.milestoneId === milestoneId)
+  const myTasks = tasks.filter(t => myEpics.some(e => e.id === t.epicId))
   const mr = rollup.milestoneRollup[milestoneId] ?? { points: 0 }
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -137,6 +140,11 @@ export function MilestoneDetail({ appData }) {
             {milestone.targetDate && <span className="text-xs" style={{ color: 'var(--text-sec)' }}>Target: {milestone.targetDate}</span>}
             <span className="text-xs font-mono" style={{ color: 'var(--sky-blue)' }}>{mr.points.toFixed(1)} pts</span>
           </div>
+          {myTasks.length > 0 && (
+            <div className="mt-3 max-w-sm">
+              <ProgressBar {...progressOf(myTasks)} flagged={myTasks.filter(isMissedDeadline).length} />
+            </div>
+          )}
         </div>
         <Button onClick={openAdd} size="sm">+ Add Epic</Button>
       </div>
@@ -162,6 +170,7 @@ export function MilestoneDetail({ appData }) {
                 <div className="space-y-2">
                   {colEpics.map(epic => {
                     const er = rollup.epicRollup[epic.id] ?? { points: 0 }
+                    const epicTasks = tasks.filter(t => t.epicId === epic.id)
                     return (
                       <Card key={epic.id} onClick={() => navigate(`/epics/${epic.id}`)} className="hover:border-[var(--accent-blue)] transition-colors" style={{ padding: '12px' }}>
                         <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-pri)' }}>{epic.name}</p>
@@ -171,6 +180,11 @@ export function MilestoneDetail({ appData }) {
                           </span>
                           <span className="text-xs font-mono" style={{ color: 'var(--sky-blue)' }}>{er.points.toFixed(1)} pts</span>
                         </div>
+                        {epicTasks.length > 0 && (
+                          <div className="mt-2">
+                            <ProgressBar {...progressOf(epicTasks)} size="sm" flagged={epicTasks.filter(isMissedDeadline).length} />
+                          </div>
+                        )}
                         <div className="flex gap-1 mt-2" onClick={e => e.stopPropagation()}>
                           <Button variant="ghost" size="sm" onClick={e => openEdit(e, epic)} className="text-xs py-0.5 px-2">Edit</Button>
                           <Button variant="danger" size="sm" onClick={e => { e.stopPropagation(); setDeleteTarget(epic) }} className="text-xs py-0.5 px-2">Del</Button>

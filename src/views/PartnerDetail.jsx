@@ -6,23 +6,7 @@ import { Badge } from '../components/ui/Badge'
 import { PartnerAvatar } from '../components/ui/PartnerAvatar'
 import { TaskModal } from './TaskModal'
 import { scoreTask } from '../lib/scoring'
-import { DUE_SOON_DAYS } from '../lib/constants'
-
-const MS_DAY = 86400000
-
-// Full days until end of the deadline day (local): today → 0, yesterday → -1
-function daysUntil(deadlineIso) {
-  const endOfDay = new Date(deadlineIso.slice(0, 10) + 'T23:59:59')
-  return Math.floor((endOfDay.getTime() - Date.now()) / MS_DAY)
-}
-
-function deadlineState(task) {
-  if (!task.deadline || task.status === 'done') return 'none'
-  const days = daysUntil(task.deadline)
-  if (days < 0) return 'overdue'
-  if (days <= DUE_SOON_DAYS) return 'due_soon'
-  return 'none'
-}
+import { daysUntil, deadlineState, completedLate } from '../lib/deadlines'
 
 const PULSE_CLASS = { due_soon: 'pulse-due-soon', overdue: 'pulse-overdue', none: '' }
 
@@ -135,6 +119,9 @@ export function PartnerDetail({ appData }) {
                     )}
                     {t.completedAt && (
                       <span className="text-xs" style={{ color: 'var(--text-sec)' }}>✓ {t.completedAt.slice(0, 10)}</span>
+                    )}
+                    {completedLate(t) && (
+                      <span className="text-xs" style={{ color: 'var(--danger-red)' }}>⚑ late</span>
                     )}
                   </div>
                 </div>

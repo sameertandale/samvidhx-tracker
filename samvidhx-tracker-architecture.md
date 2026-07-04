@@ -218,11 +218,11 @@ Uses the artifact key-value storage API (`window.storage`). **No `localStorage`.
 
 Dark SamvidhX theme — chip-frame motif, blue primary (`#2BA8E0`-ish), orange spark accent (`#F5871F`-ish), near-black surfaces. Wire interactivity via `addEventListener` inside `DOMContentLoaded` (inline `onclick`/`oninput` are blocked in the sandboxed iframe — use React `onClick` props only if built as a React artifact).
 
-1. **Dashboard** — period selector; per-partner points (bar); suggested share vs current ratio with delta; active-project summary; pipeline (in-progress) points.
+1. **Dashboard** — period selector; per-partner points (bar); suggested share vs current ratio with delta; active-project summary; pipeline (in-progress) points; **on-time delivery panel** — for each active partner, the % of their period-completed tasks (that carried a deadline) delivered on time, with each such task listed as on-time ✓ or delayed ⚑ (see §9 for definitions).
 2. **Projects** — card/list of projects with rolled-up points and status; create/edit.
-3. **Project detail** — its milestones (list with status, target date, rolled-up points); project-level per-partner breakdown.
-4. **Milestone detail** — its epics (list or kanban by status); milestone-level per-partner breakdown; label + target date editable inline.
-5. **Epic detail** — its tasks; add/edit task; epic roll-up. Each task row also has a **Copy** action: opens the task editor pre-filled with the source task's title (suffixed "(copy)"), description, stream, E/C/I, and contributors; saving creates a **new** task in the same epic with a fresh `id`/`createdAt`, status `backlog`, `completedAt` null, and `deadline` cleared.
+3. **Project detail** — its milestones (list with status, target date, rolled-up points); each milestone card shows a **progress bar** (% of its tasks done) and a red **⚑ n** count when any of its tasks missed a deadline; project-level per-partner breakdown.
+4. **Milestone detail** — its epics (list or kanban by status); the milestone header shows its **progress bar**, and each epic card shows a mini progress bar plus a red **⚑ n** missed-deadline count; milestone-level per-partner breakdown; label + target date editable inline.
+5. **Epic detail** — its tasks; add/edit task; epic roll-up; the epic header shows its **progress bar**, and any task that missed its deadline carries a red **⚑** flag on its row. Each task row also has a **Copy** action: opens the task editor pre-filled with the source task's title (suffixed "(copy)"), description, stream, E/C/I, and contributors; saving creates a **new** task in the same epic with a fresh `id`/`createdAt`, status `backlog`, `completedAt` null, and `deadline` cleared.
 6. **Task editor (modal)** — E/C/I inputs (sliders or selects); a `stream` label dropdown; status; an optional **deadline** date input; and a **contributors** row where you add one or more partners with weight sliders that auto-normalise to 100%. Live-shows the resulting `score` and each partner's split. When opened **without an epic context** (i.e. from Partner detail), it additionally shows cascading **Project → Milestone → Epic** dropdowns to place the task; every task must still land in an epic.
 7. **Partners** — manage partners, colors, capital reference. Each partner card is clickable and navigates to Partner detail (7a).
 
@@ -292,6 +292,9 @@ Built with Claude Code CLI. Deployed to Cloudflare Pages. No artifact sandbox co
 - **Concurrency:** last-write-wins; partition by epic; re-read before write.
 - **Audit:** keep `createdAt` / `estimatedAt` / `completedAt` on every task — the trail is what keeps the annual review calm.
 - **Deadlines:** `deadline` is optional and display/sort-only — it never enters scoring, roll-ups, or period attribution. **Due-soon** = deadline within the next 10 calendar days (`DUE_SOON_DAYS = 10`) and status ≠ `done`. **Overdue** = deadline in the past and status ≠ `done`. Both are computed at render time, never persisted.
+- **Missed deadline (red flag ⚑):** a task misses its deadline when it is overdue (open with deadline past), **or** when it is `done` with `completedAt` after `deadline` ("completed late"). Comparison is at date granularity — completing on the deadline day is on time. A `done` task with no `completedAt` is excluded (can't be judged). Epic/milestone cards surface a red `⚑ n` count of missed-deadline tasks beneath them.
+- **Progress %:** epic progress = `done tasks ÷ total tasks × 100` in that epic (count-based, not points — "planned tasks completed"); milestone progress = same ratio across all tasks of its epics. Rendered as a bar; computed at render time from tasks, never persisted; entities with zero tasks show no bar.
+- **On-time delivery (Dashboard):** per active partner, over tasks completed in the current period that carry a deadline: `onTime = completedAt ≤ deadline`, `delayed = completedAt > deadline`, `onTime% = onTime ÷ (onTime + delayed) × 100`. Tasks without deadlines are excluded from the %. A multi-contributor task counts for every contributor (this is a delivery metric, not a points split — weights are irrelevant here).
 - **Task copy:** copying a task (§6.5) duplicates `title` (+" (copy)"), `description`, `stream`, `effortPoints`, `complexityBand`, `impactTier`, and `contributors`; it generates a fresh `id`, sets `createdAt`/`estimatedAt` to now, resets status to `backlog`, and clears `completedAt` and `deadline`. The copy is a new task in the same epic — it earns points independently once completed.
 
 ---
@@ -445,6 +448,7 @@ samvidhx-tracker/
 │   ├── lib/
 │   │   ├── storage.js               ← KV abstraction (§11.5) — only file that knows about fetch
 │   │   ├── scoring.js               ← scoreTask(task, config), rollUp(tasks, epics, ...)
+│   │   ├── deadlines.js             ← daysUntil, deadlineState, isMissedDeadline, progressOf — pure date/progress helpers (§9)
 │   │   ├── uid.js                   ← generateId(prefix) → "prj_xxxx"
 │   │   └── constants.js             ← FIBONACCI, COMPLEXITY_BANDS, IMPACT_TIERS, STREAMS, DUE_SOON_DAYS (=10)
 │   │
@@ -458,6 +462,7 @@ samvidhx-tracker/
 │   │   │   ├── Modal.jsx
 │   │   │   ├── Badge.jsx            ← status chips (backlog / in_progress / done / blocked)
 │   │   │   ├── Card.jsx
+│   │   │   ├── ProgressBar.jsx      ← done/total % bar (blue, green at 100%)
 │   │   │   └── PartnerAvatar.jsx    ← coloured initials circle
 │   │   └── charts/
 │   │       ├── PartnerBar.jsx       ← horizontal bar per partner (recharts)

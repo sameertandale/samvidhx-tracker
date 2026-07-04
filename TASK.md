@@ -114,4 +114,28 @@ Commit as "phase-5: partner detail, deadlines, task copy".
 
 ---
 
+## Phase 6 — Progress bars, deadline flags, on-time delivery
+
+Spec: §6 (screens 1, 3, 4, 5), §9, §12 of ARCHITECTURE.md.
+
+- src/lib/deadlines.js — pure helpers: daysUntil, deadlineState (due_soon /
+  overdue / none), isMissedDeadline (overdue OR completed late), progressOf
+  (done/total/pct for a task list). Refactor PartnerDetail to import these
+  instead of its local copies.
+- Add --success-green token to globals.css.
+- components/ui/ProgressBar.jsx — % bar: track --bg-border, fill --accent-blue,
+  --success-green at 100%; shows "done/total · pct%".
+- ProjectDetail.jsx — progress bar + red "⚑ n missed" count on each milestone card.
+- MilestoneDetail.jsx — progress bar in the milestone header; mini progress bar
+  + ⚑ count on each epic kanban card.
+- EpicDetail.jsx — progress bar in the epic header; red ⚑ flag on task rows that
+  missed their deadline (overdue, or done with completedAt > deadline).
+- Dashboard.jsx — "On-Time Delivery" card: per active partner, % of
+  period-completed deadline-carrying tasks delivered on time, with each task
+  listed as ✓ on-time or ⚑ delayed. Tasks without deadlines excluded.
+
+Commit as "phase-6: progress bars, deadline flags, on-time delivery".
+
+---
+
 When all phases are done, run `npm run build` and confirm dist/ folder is generated cleanly with no errors.

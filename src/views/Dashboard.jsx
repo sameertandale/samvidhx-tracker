@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
+import { PartnerAvatar } from '../components/ui/PartnerAvatar'
 import { PartnerBar } from '../components/charts/PartnerBar'
 import { ShareDelta } from '../components/charts/ShareDelta'
 import { scoreTask } from '../lib/scoring'
+import { completedLate } from '../lib/deadlines'
+import { usePeriodFilter } from '../hooks/usePeriodFilter'
 
 export function Dashboard({ appData }) {
   const { config, partners, projects, milestones, epics, tasks, rollup } = appData
@@ -16,6 +19,18 @@ export function Dashboard({ appData }) {
   const activeProjects = projects.filter(p => p.status === 'active')
 
   const totalPoints = rollup.portfolioTotal
+
+  // On-time delivery: period-completed tasks that carried a deadline, per partner
+  const periodCompleted = usePeriodFilter(tasks.filter(t => t.status === 'done'), period)
+  const activePartners = partners.filter(p => p.active !== false)
+  const delivery = activePartners.map(p => {
+    const theirs = periodCompleted.filter(t =>
+      t.deadline && t.completedAt && (t.contributors ?? []).some(c => c.partnerId === p.id))
+    const delayed = theirs.filter(completedLate)
+    const onTime = theirs.filter(t => !completedLate(t))
+    return { partner: p, onTime, delayed, pct: theirs.length ? Math.round((onTime.length / theirs.length) * 100) : null }
+  })
+  const anyDelivery = delivery.some(d => d.pct !== null)
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -70,6 +85,59 @@ export function Dashboard({ appData }) {
           </p>
         ) : (
           <ShareDelta partners={partners} suggestedShare={rollup.suggestedShare} />
+        )}
+      </Card>
+
+      {/* On-time delivery */}
+      <Card>
+        <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--text-pri)' }}>On-Time Delivery — {period.label}</h2>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-sec)' }}>
+          Completed tasks that carried a deadline. On time = completed on or before the deadline day. Not part of the share calculation.
+        </p>
+        {!anyDelivery ? (
+          <p className="text-sm py-4 text-center" style={{ color: 'var(--text-sec)' }}>
+            No deadline-tracked tasks completed in this period yet.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {delivery.filter(d => d.pct !== null).map(({ partner: p, onTime, delayed, pct }) => (
+              <div key={p.id}>
+                <div className="flex items-center gap-3 mb-2">
+                  <PartnerAvatar partner={p} size="sm" />
+                  <Link to={`/partners/${p.id}`} className="text-sm font-medium hover:opacity-80" style={{ color: 'var(--text-pri)' }}>{p.name}</Link>
+                  <div className="flex-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-border)', height: 6 }}>
+                    <div className="h-full rounded-full" style={{
+                      width: `${pct}%`,
+                      backgroundColor: pct === 100 ? 'var(--success-green)' : pct >= 50 ? 'var(--accent-blue)' : 'var(--danger-red)',
+                    }} />
+                  </div>
+                  <span className="text-sm font-mono flex-shrink-0" style={{ color: pct === 100 ? 'var(--success-green)' : pct >= 50 ? 'var(--sky-blue)' : 'var(--danger-red)' }}>
+                    {pct}% on time
+                  </span>
+                  <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-sec)' }}>
+                    ({onTime.length} on time · {delayed.length} delayed)
+                  </span>
+                </div>
+                <div className="flex gap-2 flex-wrap pl-9">
+                  {onTime.map(t => (
+                    <span key={t.id} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(74,222,128,0.12)', color: 'var(--success-green)' }}>
+                      ✓ {t.title}
+                    </span>
+                  ))}
+                  {delayed.map(t => (
+                    <span key={t.id} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger-red)' }}>
+                      ⚑ {t.title} ({t.completedAt.slice(0, 10)} vs {t.deadline.slice(0, 10)})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {delivery.filter(d => d.pct === null).length > 0 && (
+              <p className="text-xs" style={{ color: 'var(--text-sec)' }}>
+                No deadline-tracked completions this period: {delivery.filter(d => d.pct === null).map(d => d.partner.name).join(', ')}
+              </p>
+            )}
+          </div>
         )}
       </Card>
 

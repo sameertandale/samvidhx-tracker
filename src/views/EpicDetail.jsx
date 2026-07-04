@@ -6,7 +6,9 @@ import { Badge } from '../components/ui/Badge'
 import { PartnerAvatar } from '../components/ui/PartnerAvatar'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { TaskModal } from './TaskModal'
+import { ProgressBar } from '../components/ui/ProgressBar'
 import { scoreTask } from '../lib/scoring'
+import { progressOf, isMissedDeadline } from '../lib/deadlines'
 
 export function EpicDetail({ appData }) {
   const { epicId } = useParams()
@@ -75,6 +77,11 @@ export function EpicDetail({ appData }) {
             </span>
             <span className="text-sm font-mono" style={{ color: 'var(--sky-blue)' }}>{er.points.toFixed(1)} pts (completed)</span>
           </div>
+          {myTasks.length > 0 && (
+            <div className="mt-3 max-w-sm">
+              <ProgressBar {...progressOf(myTasks)} flagged={myTasks.filter(isMissedDeadline).length} />
+            </div>
+          )}
         </div>
         <Button onClick={openAdd} size="sm">+ Add Task</Button>
       </div>
@@ -140,10 +147,17 @@ export function EpicDetail({ appData }) {
                         })}
                       </div>
                       {t.deadline && (
-                        <span className="text-xs" style={{ color: 'var(--text-sec)' }}>⏰ {t.deadline.slice(0, 10)}</span>
+                        <span className="text-xs" style={{ color: isMissedDeadline(t) ? 'var(--danger-red)' : 'var(--text-sec)' }}>
+                          ⏰ {t.deadline.slice(0, 10)}
+                        </span>
                       )}
                       {t.completedAt && (
                         <span className="text-xs" style={{ color: 'var(--text-sec)' }}>✓ {t.completedAt.slice(0, 10)}</span>
+                      )}
+                      {isMissedDeadline(t) && (
+                        <span className="text-xs font-medium" style={{ color: 'var(--danger-red)' }}>
+                          ⚑ {t.status === 'done' ? 'late' : 'missed deadline'}
+                        </span>
                       )}
                     </div>
                   </div>

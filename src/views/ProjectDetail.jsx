@@ -7,7 +7,9 @@ import { Badge } from '../components/ui/Badge'
 import { PartnerAvatar } from '../components/ui/PartnerAvatar'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Spinner } from '../components/ui/Spinner'
+import { ProgressBar } from '../components/ui/ProgressBar'
 import { MILESTONE_STATUSES } from '../lib/constants'
+import { progressOf, isMissedDeadline } from '../lib/deadlines'
 
 function MilestoneForm({ initial, projectId, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -90,7 +92,7 @@ function MilestoneForm({ initial, projectId, onSave, onClose }) {
 export function ProjectDetail({ appData }) {
   const { projectId } = useParams()
   const navigate = useNavigate()
-  const { projects, milestones, partners, rollup, addMilestone, updateMilestone, deleteMilestone } = appData
+  const { projects, milestones, epics, tasks, partners, rollup, addMilestone, updateMilestone, deleteMilestone } = appData
 
   const project = projects.find(p => p.id === projectId)
   const myMilestones = milestones.filter(m => m.projectId === projectId)
@@ -161,6 +163,8 @@ export function ProjectDetail({ appData }) {
         <div className="space-y-3">
           {myMilestones.map(m => {
             const mr = rollup.milestoneRollup[m.id] ?? { points: 0 }
+            const mEpicIds = epics.filter(e => e.milestoneId === m.id).map(e => e.id)
+            const mTasks = tasks.filter(t => mEpicIds.includes(t.epicId))
             return (
               <Card key={m.id} onClick={() => navigate(`/milestones/${m.id}`)} className="hover:border-[var(--accent-blue)] transition-colors">
                 <div className="flex items-center justify-between">
@@ -177,6 +181,11 @@ export function ProjectDetail({ appData }) {
                 </div>
                 {m.description && (
                   <p className="mt-2 text-sm" style={{ color: 'var(--text-sec)' }}>{m.description}</p>
+                )}
+                {mTasks.length > 0 && (
+                  <div className="mt-3">
+                    <ProgressBar {...progressOf(mTasks)} flagged={mTasks.filter(isMissedDeadline).length} />
+                  </div>
                 )}
               </Card>
             )
