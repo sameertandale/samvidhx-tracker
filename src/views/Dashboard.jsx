@@ -4,7 +4,7 @@ import { Badge } from '../components/ui/Badge'
 import { PartnerAvatar } from '../components/ui/PartnerAvatar'
 import { PartnerBar } from '../components/charts/PartnerBar'
 import { ShareDelta } from '../components/charts/ShareDelta'
-import { scoreTask } from '../lib/scoring'
+import { scoreTask, completedTotals } from '../lib/scoring'
 import { completedLate } from '../lib/deadlines'
 import { usePeriodFilter } from '../hooks/usePeriodFilter'
 
@@ -19,6 +19,12 @@ export function Dashboard({ appData }) {
   const activeProjects = projects.filter(p => p.status === 'active')
 
   const totalPoints = rollup.portfolioTotal
+
+  // All-time credit from completed tasks — independent of the review period and
+  // of whether the parent epic / milestone / project is finished.
+  const allTime = completedTotals(tasks, config)
+  const doneTasks = tasks.filter(t => t.status === 'done')
+  const undatedDone = doneTasks.filter(t => !t.completedAt)
 
   // On-time delivery: period-completed tasks that carried a deadline, per partner
   const periodCompleted = usePeriodFilter(tasks.filter(t => t.status === 'done'), period)
@@ -42,10 +48,18 @@ export function Dashboard({ appData }) {
       </div>
 
       {/* Summary row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Card>
+          <p className="text-xs mb-1" style={{ color: 'var(--text-sec)' }}>All-Time Points</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--sky-blue)' }}>{allTime.total.toFixed(1)}</p>
+        </Card>
+        <Card>
+          <p className="text-xs mb-1" style={{ color: 'var(--text-sec)' }}>Tasks Done</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--text-pri)' }}>{doneTasks.length}</p>
+        </Card>
         <Card>
           <p className="text-xs mb-1" style={{ color: 'var(--text-sec)' }}>Period Points</p>
-          <p className="text-2xl font-bold" style={{ color: 'var(--sky-blue)' }}>{totalPoints.toFixed(1)}</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--text-pri)' }}>{totalPoints.toFixed(1)}</p>
         </Card>
         <Card>
           <p className="text-xs mb-1" style={{ color: 'var(--text-sec)' }}>Active Projects</p>
@@ -61,15 +75,74 @@ export function Dashboard({ appData }) {
         </Card>
       </div>
 
-      {/* Partner bar chart */}
+      {/* All-time partner contribution — the headline "who has done how much" view */}
       <Card>
-        <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text-pri)' }}>Partner Points — {period.label}</h2>
-        {partners.filter(p => p.active !== false).length === 0 ? (
+        <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--text-pri)' }}>Partner Points — All Time</h2>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-sec)' }}>
+          Every task marked Done, across all periods. Credit lands as soon as the task is done — the
+          epic, milestone, and project do not need to be complete.
+        </p>
+        {activePartners.length === 0 ? (
+          <p className="text-sm py-4 text-center" style={{ color: 'var(--text-sec)' }}>
+            No active partners. <Link to="/partners" style={{ color: 'var(--sky-blue)' }}>Add partners →</Link>
+          </p>
+        ) : allTime.total === 0 ? (
+          <p className="text-sm py-4 text-center" style={{ color: 'var(--text-sec)' }}>
+            No completed tasks yet. Mark a task Done to start accruing points.
+          </p>
+        ) : (
+          <>
+            <PartnerBar partners={partners} partnerTotals={allTime.totals} />
+            <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid var(--bg-border)' }}>
+              {activePartners
+                .map(p => ({
+                  partner: p,
+                  points: allTime.totals[p.id] ?? 0,
+                  count: allTime.counts[p.id] ?? 0,
+                }))
+                .sort((a, b) => b.points - a.points)
+                .map(({ partner: p, points, count }) => (
+                  <div key={p.id} className="flex items-center gap-3">
+                    <PartnerAvatar partner={p} size="sm" />
+                    <Link to={`/partners/${p.id}`} className="text-sm font-medium hover:opacity-80" style={{ color: 'var(--text-pri)' }}>
+                      {p.name}
+                    </Link>
+                    <span className="text-xs" style={{ color: 'var(--text-sec)' }}>
+                      {count} {count === 1 ? 'task' : 'tasks'} done
+                    </span>
+                    <span className="flex-1" />
+                    <span className="text-sm font-mono" style={{ color: 'var(--sky-blue)' }}>{points.toFixed(1)} pts</span>
+                    <span className="text-xs font-mono w-12 text-right" style={{ color: 'var(--text-sec)' }}>
+                      {((points / allTime.total) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* Partner bar chart — period-scoped, this is what drives the share calc */}
+      <Card>
+        <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--text-pri)' }}>Partner Points — {period.label}</h2>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-sec)' }}>
+          Only tasks completed between {period.start} and {period.end}. This is the subset that feeds the suggested share below.
+        </p>
+        {activePartners.length === 0 ? (
           <p className="text-sm py-4 text-center" style={{ color: 'var(--text-sec)' }}>
             No active partners. <Link to="/partners" style={{ color: 'var(--sky-blue)' }}>Add partners →</Link>
           </p>
         ) : (
-          <PartnerBar partners={partners} partnerTotals={rollup.partnerTotals} />
+          <>
+            <PartnerBar partners={partners} partnerTotals={rollup.partnerTotals} />
+            {undatedDone.length > 0 && (
+              <p className="text-xs mt-3 px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(245,135,31,0.10)', color: 'var(--accent-orng)' }}>
+                {undatedDone.length} completed {undatedDone.length === 1 ? 'task has' : 'tasks have'} no completion date, so
+                {undatedDone.length === 1 ? ' it is' : ' they are'} counted in All Time but not in any period.
+                Add a completed date on the task to include {undatedDone.length === 1 ? 'it' : 'them'} in the share calculation.
+              </p>
+            )}
+          </>
         )}
       </Card>
 

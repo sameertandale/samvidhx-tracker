@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { PartnerAvatar } from '../components/ui/PartnerAvatar'
-import { rollUp } from '../lib/scoring'
+import { rollUp, assignedTotals } from '../lib/scoring'
 
 export function Review({ appData }) {
   const { config, partners, projects, milestones, epics, tasks } = appData
@@ -16,13 +16,18 @@ export function Review({ appData }) {
   const ru = rollUp(tasks, epics, milestones, projects, config)
   const { partnerTotals, portfolioTotal, suggestedShare } = ru
 
+  // Total assigned points per partner across all tasks, regardless of task
+  // status or whether the containing milestone/epic/project is complete.
+  const assigned = assignedTotals(tasks, config)
+
   const rows = activePartners.map(p => ({
     partner: p,
-    points: partnerTotals[p.id] ?? 0,
+    completed: partnerTotals[p.id] ?? 0,
+    assigned: assigned[p.id] ?? 0,
     suggested: suggestedShare[p.id] ?? 0,
     current: p.currentShare ?? null,
     delta: p.currentShare != null ? (suggestedShare[p.id] ?? 0) - p.currentShare : null,
-  })).sort((a, b) => b.points - a.points)
+  })).sort((a, b) => b.completed - a.completed)
 
   const exportText = [
     `SamvidhX Systems LLP — Effort Share Review`,
@@ -31,10 +36,10 @@ export function Review({ appData }) {
     ``,
     `Note: Residual share only. Requires partner consensus and MCA Form 3 filing.`,
     ``,
-    `Partner            | Points  | Suggested %  | Current %  | Delta`,
-    `-`.repeat(70),
+    `Partner            | Points (Done/Assigned) | Suggested %  | Current %  | Delta`,
+    `-`.repeat(90),
     ...rows.map(r =>
-      `${r.partner.name.padEnd(18)} | ${r.points.toFixed(1).padStart(7)} | ${r.suggested.toFixed(1).padStart(12)}%  | ${(r.current ?? '—').toString().padStart(10)} | ${r.delta != null ? (r.delta > 0 ? '+' : '') + r.delta.toFixed(1) + '%' : '—'}`
+      `${r.partner.name.padEnd(18)} | ${(r.completed.toFixed(1) + '/' + r.assigned.toFixed(1)).padStart(23)} | ${r.suggested.toFixed(1).padStart(12)}%  | ${(r.current ?? '—').toString().padStart(10)} | ${r.delta != null ? (r.delta > 0 ? '+' : '') + r.delta.toFixed(1) + '%' : '—'}`
     ),
     ``,
     `Total portfolio points: ${portfolioTotal.toFixed(1)}`,
@@ -72,7 +77,7 @@ export function Review({ appData }) {
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--bg-border)' }}>
                   <th className="text-left pb-3 font-medium" style={{ color: 'var(--text-sec)' }}>Partner</th>
-                  <th className="text-right pb-3 font-medium" style={{ color: 'var(--text-sec)' }}>Points</th>
+                  <th className="text-right pb-3 font-medium" style={{ color: 'var(--text-sec)' }}>Points (Done/Assigned)</th>
                   <th className="text-right pb-3 font-medium" style={{ color: 'var(--text-sec)' }}>Suggested %</th>
                   <th className="text-right pb-3 font-medium" style={{ color: 'var(--text-sec)' }}>Current %</th>
                   <th className="text-right pb-3 font-medium" style={{ color: 'var(--text-sec)' }}>Delta</th>
@@ -90,7 +95,9 @@ export function Review({ appData }) {
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 text-right font-mono" style={{ color: 'var(--sky-blue)' }}>{r.points.toFixed(1)}</td>
+                    <td className="py-3 text-right font-mono" style={{ color: 'var(--sky-blue)' }}>
+                      {r.completed.toFixed(1)}<span style={{ color: 'var(--text-sec)' }}>/{r.assigned.toFixed(1)}</span>
+                    </td>
                     <td className="py-3 text-right font-mono font-semibold" style={{ color: 'var(--text-pri)' }}>{r.suggested.toFixed(1)}%</td>
                     <td className="py-3 text-right font-mono" style={{ color: 'var(--text-sec)' }}>
                       {r.current != null ? `${r.current}%` : '—'}
@@ -108,7 +115,9 @@ export function Review({ appData }) {
               <tfoot>
                 <tr>
                   <td className="pt-3 text-sm font-medium" style={{ color: 'var(--text-sec)' }}>Total</td>
-                  <td className="pt-3 text-right font-mono font-semibold" style={{ color: 'var(--sky-blue)' }}>{portfolioTotal.toFixed(1)}</td>
+                  <td className="pt-3 text-right font-mono font-semibold" style={{ color: 'var(--sky-blue)' }}>
+                    {portfolioTotal.toFixed(1)}<span style={{ color: 'var(--text-sec)' }}>/{rows.reduce((s, r) => s + r.assigned, 0).toFixed(1)}</span>
+                  </td>
                   <td className="pt-3 text-right font-mono" style={{ color: 'var(--text-sec)' }}>100.0%</td>
                   <td colSpan={2} />
                 </tr>

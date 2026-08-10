@@ -187,9 +187,16 @@ partnerTotal[p]       = Σ ( taskScore × weight[p] ) over completed tasks
 portfolioTotal        = Σ partnerTotal[p] for active partners
 
 suggestedShare[p]     = partnerTotal[p] / portfolioTotal × 100
+
+assignedTotal[p]       = Σ ( taskScore × weight[p] ) over ALL tasks, any status
+                        where p ∈ task.contributors
+                        // flat over the task list — no period filter, and
+                        // never gated by milestone/epic/project completion
 ```
 
 Because every task's contributor weights sum to 1.0, `Σ partnerTotal` equals `Σ taskScore` — no double-counting, the suggested shares always total 100%.
+
+The Review screen's Points column displays `partnerTotal[p] / assignedTotal[p]` (done points over total assigned points) rather than a single number. `assignedTotal[p]` is intentionally computed by summing every task a partner is a contributor on, irrespective of that task's own status or whether its parent milestone/epic/project is complete — it is a workload denominator, not a period-scoped figure.
 
 Display `suggestedShare[p]` next to the **current** ratio with a highlighted delta. State explicitly that this is the **residual** profit share (after interest on capital + fixed remuneration), so no one reads it as the whole pie.
 
@@ -228,7 +235,7 @@ Dark SamvidhX theme — chip-frame motif, blue primary (`#2BA8E0`-ish), orange s
 
 7a. **Partner detail** (route `/partners/:partnerId`, `PartnerDetail.jsx`) — all tasks where the partner is a contributor, across all projects, each row showing project ▸ milestone ▸ epic breadcrumb, status, deadline, and the partner's credit (`score × weight`). Sorted by `deadline` ascending; tasks without a deadline sort last. Tasks due within the next **10 days** (`DUE_SOON_DAYS`) get a soft pulsing glow using `--accent-orng`; overdue tasks pulse red; `done` tasks never pulse. An **Add Task** button opens the task editor with this partner pre-filled as sole contributor (weight 1.0) and the cascading Project → Milestone → Epic picker enabled. Each row also has an **Edit** action opening the task editor pre-filled with that task; the task stays in its epic (no placement picker), and edits flow through the normal roll-up recompute. If an edit removes this partner from the contributors, the task simply drops off the list.
 8. **Settings** — edit Config: complexity bands, impact tiers, impact cap, `countOnlyCompleted`, period dates.
-9. **Review** — suggested-share calculator for the period + **Export summary** (copy-to-clipboard block for the partner meeting / Form 3 prep).
+9. **Review** — suggested-share calculator for the period + **Export summary** (copy-to-clipboard block for the partner meeting / Form 3 prep). Its Points column shows each partner as **done/assigned** (completed credited points over total assigned credited points across all their tasks, any status), independent of whether the parent milestone/epic/project is complete.
 
 ---
 

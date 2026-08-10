@@ -6,6 +6,41 @@ export function scoreTask(task, config) {
   return e * c * i
 }
 
+// Total credited points per partner across ALL tasks regardless of status —
+// i.e. their total assigned workload. Flat over the task list, so it is
+// unaffected by milestone/epic/project completion state.
+export function assignedTotals(allTasks, config) {
+  const totals = {}
+  for (const task of allTasks) {
+    const score = scoreTask(task, config)
+    for (const contrib of (task.contributors ?? [])) {
+      const credit = score * contrib.weight
+      totals[contrib.partnerId] = (totals[contrib.partnerId] ?? 0) + credit
+    }
+  }
+  return totals
+}
+
+// Credited points per partner from COMPLETED tasks only, all-time. Ignores the
+// review period and every epic/milestone/project status — a done task counts the
+// moment it is marked done. Returns { totals, counts, total }.
+export function completedTotals(allTasks, config) {
+  const totals = {}
+  const counts = {}
+  let total = 0
+  for (const task of allTasks) {
+    if (task.status !== 'done') continue
+    const score = scoreTask(task, config)
+    for (const contrib of (task.contributors ?? [])) {
+      const credit = score * contrib.weight
+      totals[contrib.partnerId] = (totals[contrib.partnerId] ?? 0) + credit
+      counts[contrib.partnerId] = (counts[contrib.partnerId] ?? 0) + 1
+      total += credit
+    }
+  }
+  return { totals, counts, total }
+}
+
 export function rollUp(allTasks, allEpics, allMilestones, allProjects, config) {
   const countOnlyCompleted = config?.countOnlyCompleted ?? true
   const period = config?.currentPeriod

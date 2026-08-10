@@ -4,5 +4,5 @@ pages_build_output_dir = "dist"
 
 [[kv_namespaces]]
 binding = "TRACKER_KV"
-id = "PLACEHOLDER_PROD_ID"
-preview_id = "PLACEHOLDER_PREVIEW_ID"
+id = "dadcb7d0323642fb862e28c0cc1c1531"
+preview_id = "680e84db51be45db98b465d73f5c559e"
