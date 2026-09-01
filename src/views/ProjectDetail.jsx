@@ -8,8 +8,10 @@ import { PartnerAvatar } from '../components/ui/PartnerAvatar'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Spinner } from '../components/ui/Spinner'
 import { ProgressBar } from '../components/ui/ProgressBar'
+import { TaskCsvImportModal } from '../components/TaskCsvImportModal'
 import { MILESTONE_STATUSES } from '../lib/constants'
 import { progressOf, isMissedDeadline } from '../lib/deadlines'
+import { exportProjectTasksCsv } from '../lib/csv'
 
 function MilestoneForm({ initial, projectId, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -92,7 +94,7 @@ function MilestoneForm({ initial, projectId, onSave, onClose }) {
 export function ProjectDetail({ appData }) {
   const { projectId } = useParams()
   const navigate = useNavigate()
-  const { projects, milestones, epics, tasks, partners, rollup, addMilestone, updateMilestone, deleteMilestone } = appData
+  const { projects, milestones, epics, tasks, partners, rollup, addMilestone, updateMilestone, deleteMilestone, addTask, updateTask } = appData
 
   const project = projects.find(p => p.id === projectId)
   const myMilestones = milestones.filter(m => m.projectId === projectId)
@@ -101,6 +103,7 @@ export function ProjectDetail({ appData }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   if (!project) return (
     <div className="p-6 text-center" style={{ color: 'var(--text-sec)' }}>
@@ -111,6 +114,19 @@ export function ProjectDetail({ appData }) {
   const openAdd = () => { setEditing(null); setModalOpen(true) }
   const openEdit = (e, m) => { e.stopPropagation(); setEditing(m); setModalOpen(true) }
   const handleSave = (data) => editing ? updateMilestone({ ...editing, ...data }) : addMilestone(data)
+
+  const handleExportCsv = () => {
+    const csv = exportProjectTasksCsv(project, milestones, epics, tasks, partners)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${project.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-tasks.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -123,7 +139,11 @@ export function ProjectDetail({ appData }) {
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-pri)' }}>{project.name}</h1>
           {project.description && <p className="mt-1 text-sm" style={{ color: 'var(--text-sec)' }}>{project.description}</p>}
         </div>
-        <Badge status={project.status} />
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={handleExportCsv}>Export CSV</Button>
+          <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)}>Import CSV</Button>
+          <Badge status={project.status} />
+        </div>
       </div>
 
       {/* Partner breakdown */}
@@ -203,6 +223,18 @@ export function ProjectDetail({ appData }) {
         onConfirm={() => deleteMilestone(deleteTarget.id)}
         title="Delete Milestone"
         message={`Delete "${deleteTarget?.label}"? All its epics and tasks will be permanently removed.`}
+      />
+
+      <TaskCsvImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        project={project}
+        milestones={milestones}
+        epics={epics}
+        tasks={tasks}
+        partners={partners}
+        addTask={addTask}
+        updateTask={updateTask}
       />
     </div>
   )
