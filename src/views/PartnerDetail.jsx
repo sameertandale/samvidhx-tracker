@@ -47,7 +47,7 @@ export function PartnerDetail({ appData }) {
   const doneCredit = myTasks.filter(r => r.task.status === 'done').reduce((s, r) => s + r.credit, 0)
 
   const handleSave = (data) => {
-    if (modal?.mode === 'edit') return updateTask({ ...modal.task, ...data })
+    if (modal?.mode === 'edit') return updateTask({ ...modal.task, ...data }, modal.task.epicId)
     return addTask(data)
   }
 

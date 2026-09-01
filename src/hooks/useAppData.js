@@ -222,11 +222,21 @@ export function useAppData() {
     return task
   }, [update])
 
-  const updateTask = useCallback(async (task) => {
-    // Re-read before write
-    const current = await db.get(`tasks:${task.epicId}`) ?? []
-    const next = current.map(t => t.id === task.id ? task : t)
-    await db.set(`tasks:${task.epicId}`, next)
+  // previousEpicId: pass the task's epicId as it was before this edit, when known.
+  // If it differs from task.epicId, the task is moving epics — remove it from the old
+  // epic's key and append it to the new one, rather than writing into just one key.
+  const updateTask = useCallback(async (task, previousEpicId) => {
+    if (previousEpicId && previousEpicId !== task.epicId) {
+      const oldList = await db.get(`tasks:${previousEpicId}`) ?? []
+      await db.set(`tasks:${previousEpicId}`, oldList.filter(t => t.id !== task.id))
+      const newList = await db.get(`tasks:${task.epicId}`) ?? []
+      await db.set(`tasks:${task.epicId}`, [...newList, task])
+    } else {
+      // Re-read before write
+      const current = await db.get(`tasks:${task.epicId}`) ?? []
+      const next = current.map(t => t.id === task.id ? task : t)
+      await db.set(`tasks:${task.epicId}`, next)
+    }
     update(s => ({ ...s, tasks: s.tasks.map(t => t.id === task.id ? task : t) }))
   }, [update])
 

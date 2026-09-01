@@ -3,6 +3,7 @@ import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
 import { PartnerAvatar } from '../components/ui/PartnerAvatar'
 import { Spinner } from '../components/ui/Spinner'
+import { EpicSearchField } from '../components/EpicSearchField'
 import { scoreTask } from '../lib/scoring'
 import { FIBONACCI, COMPLEXITY_BANDS, IMPACT_TIERS, STREAMS, TASK_STATUSES } from '../lib/constants'
 
@@ -97,8 +98,8 @@ function ContributorRow({ partners, contributors, onChange }) {
   )
 }
 
-// mode: 'add' | 'edit' | 'copy'. When epicId is not given, projects/milestones/epics
-// must be passed and the modal shows a cascading picker to place the task.
+// mode: 'add' | 'edit' | 'copy'. epicId is only the default target — the Epic field
+// is always a searchable picker, so the task can be placed in (or moved to) any epic.
 export function TaskModal({ open, onClose, epicId, partners, initial, onSave, defaultStream, mode, defaultContributorId, projects = [], milestones = [], epics = [] }) {
   const resolvedMode = mode ?? (initial ? 'edit' : 'add')
   const makeDefaultContributors = () => {
@@ -124,12 +125,12 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
 
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  // Cascading placement picker — only used when no epicId prop is given
-  const [pick, setPick] = useState({ projectId: '', milestoneId: '', epicId: '' })
+  // Target epic — searchable, defaults to initial task's epic or the epicId prop, but always changeable
+  const [targetEpicId, setTargetEpicId] = useState('')
 
   useEffect(() => {
     if (open) {
-      setPick({ projectId: '', milestoneId: '', epicId: '' })
+      setTargetEpicId(initial?.epicId ?? epicId ?? '')
       if (initial) {
         setForm({
           title: initial.title ?? '',
@@ -155,10 +156,6 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
   const weightsOk = Math.abs(total - 1.0) < 0.001
   const liveScore = scoreTask({ effortPoints: form.effortPoints, complexityBand: form.complexityBand, impactTier: form.impactTier }, { impactCap: 3 })
 
-  const needsPicker = !epicId
-  const pickMilestones = milestones.filter(m => m.projectId === pick.projectId)
-  const pickEpics = epics.filter(e => e.milestoneId === pick.milestoneId)
-  const targetEpicId = epicId ?? pick.epicId
   const epicOk = !!targetEpicId
 
   const handleSave = async () => {
@@ -184,50 +181,23 @@ export function TaskModal({ open, onClose, epicId, partners, initial, onSave, de
   }
 
   const titles = { add: 'Add Task', edit: 'Edit Task', copy: 'Copy Task' }
-  const selectStyle = { backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-pri)' }
 
   return (
     <Modal open={open} onClose={onClose} title={titles[resolvedMode]} width="max-w-2xl">
       <div className="space-y-4">
-        {needsPicker && (
-          <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)' }}>
-            <label className="block text-sm mb-2 font-medium" style={{ color: 'var(--text-sec)' }}>Place task in *</label>
-            <div className="grid grid-cols-3 gap-2">
-              <select
-                className="px-2 py-2 rounded-lg text-sm outline-none"
-                style={selectStyle}
-                value={pick.projectId}
-                onChange={e => setPick({ projectId: e.target.value, milestoneId: '', epicId: '' })}
-              >
-                <option value="">Project…</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <select
-                className="px-2 py-2 rounded-lg text-sm outline-none"
-                style={selectStyle}
-                value={pick.milestoneId}
-                disabled={!pick.projectId}
-                onChange={e => setPick(pk => ({ ...pk, milestoneId: e.target.value, epicId: '' }))}
-              >
-                <option value="">Milestone…</option>
-                {pickMilestones.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-              </select>
-              <select
-                className="px-2 py-2 rounded-lg text-sm outline-none"
-                style={selectStyle}
-                value={pick.epicId}
-                disabled={!pick.milestoneId}
-                onChange={e => setPick(pk => ({ ...pk, epicId: e.target.value }))}
-              >
-                <option value="">Epic…</option>
-                {pickEpics.map(ep => <option key={ep.id} value={ep.id}>{ep.name}</option>)}
-              </select>
-            </div>
-            {pick.projectId && pick.milestoneId && pickEpics.length === 0 && (
-              <p className="text-xs mt-2" style={{ color: 'var(--text-sec)' }}>This milestone has no epics yet — create one from its detail page first.</p>
-            )}
-          </div>
-        )}
+        <div>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-sec)' }}>Epic *</label>
+          <EpicSearchField
+            epics={epics}
+            milestones={milestones}
+            projects={projects}
+            value={targetEpicId}
+            onChange={setTargetEpicId}
+          />
+          {!epicOk && (
+            <p className="text-xs mt-1" style={{ color: 'var(--text-sec)' }}>Search and select the epic this task belongs to.</p>
+          )}
+        </div>
 
         <div>
           <label className="block text-sm mb-1" style={{ color: 'var(--text-sec)' }}>Title *</label>

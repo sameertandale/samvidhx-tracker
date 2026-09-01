@@ -48,8 +48,8 @@ export function EpicDetail({ appData }) {
   })
 
   const handleSaveTask = (data) => {
-    if (modal?.mode === 'edit') return updateTask({ ...modal.initial, ...data })
-    return addTask({ ...data, epicId })
+    if (modal?.mode === 'edit') return updateTask({ ...modal.initial, ...data }, modal.initial.epicId)
+    return addTask(data)
   }
 
   const statusOrder = { backlog: 0, in_progress: 1, done: 2, blocked: 3 }
@@ -182,6 +182,9 @@ export function EpicDetail({ appData }) {
         mode={modal?.mode}
         onSave={handleSaveTask}
         defaultStream={epic.primaryStream}
+        projects={projects}
+        milestones={milestones}
+        epics={epics}
       />
 
       <ConfirmDialog

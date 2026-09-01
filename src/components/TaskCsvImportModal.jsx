@@ -37,7 +37,7 @@ export function TaskCsvImportModal({ open, onClose, project, milestones, epics, 
           created++
         } else {
           const existing = tasks.find(t => t.id === row.data.id)
-          await updateTask({ ...existing, ...row.data })
+          await updateTask({ ...existing, ...row.data }, existing.epicId)
           updated++
         }
       } catch {
