@@ -7,6 +7,7 @@ import { PartnerAvatar } from '../components/ui/PartnerAvatar'
 import { TaskModal } from './TaskModal'
 import { scoreTask } from '../lib/scoring'
 import { daysUntil, deadlineState, completedLate } from '../lib/deadlines'
+import { TASK_STATUSES } from '../lib/constants'
 
 const PULSE_CLASS = { due_soon: 'pulse-due-soon', overdue: 'pulse-overdue', none: '' }
 
@@ -15,6 +16,7 @@ export function PartnerDetail({ appData }) {
   const { partners, projects, milestones, epics, tasks, addTask, updateTask } = appData
   // modal: { mode: 'add' } | { mode: 'edit', task } | null
   const [modal, setModal] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('all')
 
   const partner = partners.find(p => p.id === partnerId)
 
@@ -45,6 +47,15 @@ export function PartnerDetail({ appData }) {
   const dueSoonCount = myTasks.filter(r => r.state === 'due_soon').length
   const overdueCount = myTasks.filter(r => r.state === 'overdue').length
   const doneCredit = myTasks.filter(r => r.task.status === 'done').reduce((s, r) => s + r.credit, 0)
+
+  const statusCounts = TASK_STATUSES.reduce((acc, s) => {
+    acc[s.value] = myTasks.filter(r => r.task.status === s.value).length
+    return acc
+  }, {})
+
+  const visibleTasks = statusFilter === 'all'
+    ? myTasks
+    : myTasks.filter(r => r.task.status === statusFilter)
 
   const handleSave = (data) => {
     if (modal?.mode === 'edit') return updateTask({ ...modal.task, ...data }, modal.task.epicId)
@@ -83,8 +94,38 @@ export function PartnerDetail({ appData }) {
           <Button onClick={() => setModal({ mode: 'add' })} size="sm">Add First Task</Button>
         </Card>
       ) : (
+        <>
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className="text-xs px-2.5 py-1 rounded-full font-medium"
+              style={statusFilter === 'all'
+                ? { backgroundColor: 'var(--accent-blue)', color: 'var(--text-pri)' }
+                : { backgroundColor: 'var(--bg-border)', color: 'var(--text-sec)' }}
+            >
+              All ({myTasks.length})
+            </button>
+            {TASK_STATUSES.map(s => (
+              <button
+                key={s.value}
+                onClick={() => setStatusFilter(s.value)}
+                className="text-xs px-2.5 py-1 rounded-full font-medium"
+                style={statusFilter === s.value
+                  ? { backgroundColor: 'var(--accent-blue)', color: 'var(--text-pri)' }
+                  : { backgroundColor: 'var(--bg-border)', color: 'var(--text-sec)' }}
+              >
+                {s.label} ({statusCounts[s.value] ?? 0})
+              </button>
+            ))}
+          </div>
+
+          {visibleTasks.length === 0 ? (
+            <Card className="text-center py-12">
+              <p className="text-sm" style={{ color: 'var(--text-sec)' }}>No tasks with this status.</p>
+            </Card>
+          ) : (
         <div className="space-y-2">
-          {myTasks.map(({ task: t, epic, milestone, project, weight, credit, state }) => (
+          {visibleTasks.map(({ task: t, epic, milestone, project, weight, credit, state }) => (
             <Card key={t.id} className={PULSE_CLASS[state]} style={{ padding: '12px' }}>
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
@@ -132,6 +173,8 @@ export function PartnerDetail({ appData }) {
             </Card>
           ))}
         </div>
+          )}
+        </>
       )}
 
       <TaskModal
